@@ -51,11 +51,9 @@ def batches(env, net, length):
     steps.append((obs_t[0].numpy(), policy))
     
     obs_t, reward_step, terminated, info = env.step(policy)
-    reward = max(reward, reward_step)
+    reward += reward_step * len(steps) / info['max_steps']
 
     if terminated:
-      reward *= len(steps) / info['max_steps']
-
       batch.append((reward, steps))
       print(f'Finished episode {len(batch)}, reward={reward} len={len(steps)}\n')
 
