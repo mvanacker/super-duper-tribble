@@ -94,7 +94,7 @@ class Market(Env):
 
     self.obs_index += 1
     observation = self.observations[self.obs_index]
-    reward = log(1+self.position.total_pnl(price))
+    reward = log(1+self.position.balance+self.position.total_pnl(price))
 
     is_last_obs = self.obs_index == len(self.observations) - 1
     terminated = is_last_obs or self.position.has_blown_up()

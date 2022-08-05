@@ -22,6 +22,7 @@ NUM_HIDDEN    = 512
 NUM_OUTPUTS   = len(actions)
 
 BOUND_MIN     = 0.0
+BEST_MAX      = 500
 PERCENTILE    = 70
 
 class Model(nn.Module):
@@ -68,6 +69,7 @@ def main(net):
   optimizer = optim.Adam(params=net.parameters(), lr=LEARNING_RATE)
 
   print(f'Starting...')
+  best = []
   with SummaryWriter(comment="-indicator") as writer:
     for b, batch in enumerate(batches(env, net, LENGTH_BATCH)):
       rewards, _ = zip(*batch)
@@ -80,8 +82,14 @@ def main(net):
       for reward, steps in batch:
         if reward >= bound:
           obs, act = zip(*steps)
+          best.append((obs, act))
           train_in.append(obs)
           train_out.append(act)
+
+      for obs, act in best:
+        train_in.append(obs)
+        train_out.append(act)
+      best = best[-BEST_MAX:]
 
       if len(train_in):
         train_in = np.concatenate(train_in)
@@ -124,6 +132,7 @@ if __name__ == "__main__":
   try:
     model = Model(NUM_INPUTS, NUM_HIDDEN, NUM_OUTPUTS)
     main(model)
-  except:
+  except Exception as e:
+    print(e)
     save(model)
     exit(0)
