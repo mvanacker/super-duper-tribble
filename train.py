@@ -15,8 +15,8 @@ import torch.optim as optim
 from actions import actions
 from env import Market
 
-LEARNING_RATE = 0.01
-LENGTH_BATCH  = 6
+LEARNING_RATE = 0.001
+LENGTH_BATCH  = 100
 NUM_INPUTS    = 9*1
 NUM_HIDDEN    = 512
 NUM_OUTPUTS   = len(actions)
