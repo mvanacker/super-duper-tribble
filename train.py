@@ -15,10 +15,6 @@ import torch.optim as optim
 from actions import actions
 from env import Market
 
-LENGTH_RSI    = 14
-SOURCE_PRICE  = 'Close'
-SOURCE_RSI    = 'RSI'
-
 LEARNING_RATE = 0.01
 LENGTH_BATCH  = 6
 NUM_INPUTS    = 9*1
