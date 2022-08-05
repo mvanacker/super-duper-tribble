@@ -130,6 +130,6 @@ if __name__ == "__main__":
   try:
     model = Model(NUM_INPUTS, NUM_HIDDEN, NUM_OUTPUTS)
     main(model)
-  except KeyboardInterrupt:
+  except:
     save(model)
     exit(0)
