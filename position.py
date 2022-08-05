@@ -5,7 +5,7 @@ class Position:
     self.pnl += self.unrealized_pnl(price)
     self.pnl = max(self.pnl, -self.balance)
     self._reset_order()
-    print(f'{f"({step}) " if step is not None else ""}Closed position at {price:.2f}, pnl={self.pnl:.2f}')
+    # print(f'{f"({step}) " if step is not None else ""}Closed position at {price:.2f}, pnl={self.pnl:.2f}')
 
   def is_open(self):
     return self.size != 0.0
@@ -22,7 +22,7 @@ class Position:
     sign = 1 if size > 0 else -1
     self.stop_loss = price * (1 - sign * stop_loss)
     self.take_profit = price * (1 + sign * take_profit)
-    print(f'{f"({step}) " if step is not None else ""}Opened position price={price:.2f}, size={self.size:.2f}, sl={self.stop_loss:.2f}, tp={self.take_profit:.2f}')
+    # print(f'{f"({step}) " if step is not None else ""}Opened position price={price:.2f}, size={self.size:.2f}, sl={self.stop_loss:.2f}, tp={self.take_profit:.2f}')
 
   def reset(self):
     self.balance = 1.0

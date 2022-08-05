@@ -7,6 +7,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import numpy as np
 from datetime import datetime
 from tensorboardX import SummaryWriter
+from time import sleep
 
 import torch
 import torch.nn as nn
@@ -21,9 +22,9 @@ NUM_INPUTS    = 9*1
 NUM_HIDDEN    = 512
 NUM_OUTPUTS   = len(actions)
 
-BOUND_MIN     = 0.0
+BOUND_MIN     = 400.0
 BEST_MAX      = 500
-PERCENTILE    = 70
+PERCENTILE    = 80
 
 class Model(nn.Module):
   def __init__(self, num_inputs, num_hidden, num_outputs):
@@ -52,7 +53,7 @@ def batches(env, net, length):
 
     if terminated:
       batch.append((reward, steps))
-      print(f'Finished episode {len(batch)}, reward={reward} len={len(steps)}\n')
+      print(f'Finished episode {len(batch):0>3}, len={len(steps):0>4}, reward={reward:.2f} (pnl={info["position"].pnl:.2f})')
 
       if len(batch) == length:
         yield batch
@@ -75,53 +76,48 @@ def main(net):
       rewards, _ = zip(*batch)
       mean = float(np.mean(rewards))
 
-      # bound = max(BOUND_MIN, np.percentile(rewards, PERCENTILE))
-      bound = np.percentile(rewards, PERCENTILE)
+      bound = max(BOUND_MIN, np.percentile(rewards, PERCENTILE))
+      # bound = np.percentile(rewards, PERCENTILE)
       train_in = []
       train_out = []
       for reward, steps in batch:
         if reward >= bound:
           obs, act = zip(*steps)
-          best.append((obs, act))
-          train_in.append(obs)
-          train_out.append(act)
+          if not (np.any(np.isnan(obs)) or np.any(np.isnan(act))):
+            best.append((obs, act))
+            train_in.append(obs)
+            train_out.append(act)
 
       for obs, act in best:
         train_in.append(obs)
         train_out.append(act)
       best = best[-BEST_MAX:]
 
-      if len(train_in):
-        train_in = np.concatenate(train_in)
-        train_out = np.concatenate(train_out)
+      train_in = np.concatenate(train_in)
+      train_out = np.concatenate(train_out)
 
-        if not (np.any(np.isnan(train_in)) or np.any(np.isnan(train_out))):
-          train_in_t = torch.FloatTensor(train_in)
-          train_out_t = torch.FloatTensor(train_out)
+      train_in_t = torch.FloatTensor(train_in)
+      train_out_t = torch.FloatTensor(train_out)
 
+      fed_backward = False
+      while not fed_backward:
+        try:
           optimizer.zero_grad()
           output_t = net(train_in_t)
           loss_t = loss_func(output_t, train_out_t)
           loss_t.backward()
           optimizer.step()
           loss = loss_t.item()
+          fed_backward = True
+        except RuntimeError as e:
+          print(e)
+          sleep(5)
 
-          # target = 0.0
-          # for df in env.data:
-          #   prices = df['Close']
-          #   min_price = np.min(prices)
-          #   target += (np.max(prices) - min_price) / min_price
-          # target *= 0.25
-
-          # print(f"[BATCH {b}] loss={loss:.3f}, µ={mean:.1f}, bound={bound:.1f}, target={target}\n")
-          print(f"[BATCH {b}] loss={loss:.3f}, µ={mean:.1f}, bound={bound:.1f}\n")
-          writer.add_scalar("loss", loss, b)
-          writer.add_scalar("bound", bound, b)
-          writer.add_scalar("mean", mean, b)
-          writer.flush()
-
-          # if mean > target:
-          #   break
+      print(f"[BATCH {b}] loss={loss:.3f}, µ={mean:.1f}, bound={bound:.1f}\n")
+      writer.add_scalar("loss", loss, b)
+      writer.add_scalar("bound", bound, b)
+      writer.add_scalar("mean", mean, b)
+      writer.flush()
 
 def save(model):
   t = datetime.now()
@@ -132,7 +128,8 @@ if __name__ == "__main__":
   try:
     model = Model(NUM_INPUTS, NUM_HIDDEN, NUM_OUTPUTS)
     main(model)
-  except Exception as e:
-    print(e)
+  # except Exception as e:
+  #   print(e)
+  except KeyboardInterrupt:
     save(model)
     exit(0)

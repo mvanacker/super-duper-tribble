@@ -3,13 +3,12 @@ from gym.envs.registration import EnvSpec
 from gym.spaces import Box
 from math import inf, log
 import numpy as np
-import pandas as pd
-import pandas_datareader as pdr
 import torch
 
 from actions import actions
 from indicators import rsi, stoch, hvp, trend
 from position import Position
+from symbol_sampler import sample
 
 CUTOFF = 109
 
@@ -28,38 +27,10 @@ class Market(Env):
     self.symbol_index = -1
     self.position = Position()
 
-  def _random_symbols(self):
-    today = pd.Timestamp.today().date()
-    two_weeks = pd.Timedelta(days=14)
-    four_years = pd.Timedelta(weeks=4*52)
-    
-    def is_active(data):
-      return today - data.iloc[-1].name.date() < two_weeks
-    def is_mature(data):
-      return today - data.iloc[0].name.date() > four_years
-
-    symbols = pdr.data.get_nasdaq_symbols()
-    sample = []
-    while len(sample) < self.batch_length:
-      symbol = symbols.sample().index[0]
-      try:
-        data = pdr.get_data_yahoo(symbol)
-        if not is_active(data):
-          print(f'skipping {symbol} (inactive, last={data.iloc[-1].name.date()})', end=' ')
-        elif not is_mature(data):
-          print(f'skipping {symbol} (immature, len={len(data)})', end=' ')
-        else:
-          sample.append((symbol, data))
-          print(f'added {symbol} ({len(sample)}/{self.batch_length})', end=' ')
-      except Exception as e:
-        print(f'skipping {symbol} (exception)', end=' ')
-    print('\n')
-    return sample
-
   def reset(self):
     self.symbol_index = (1 + self.symbol_index) % self.batch_length
     if self.symbol_index == 0:
-      self.symbols, self.data = zip(*self._random_symbols())
+      self.symbols, self.data = zip(*sample(self.batch_length))
       for df in self.data: # data is [pd.DataFrame]
         del df['Adj Close']
         df.loc[:, 'RSI']   = rsi(df['Close'])
@@ -94,14 +65,23 @@ class Market(Env):
 
     self.obs_index += 1
     observation = self.observations[self.obs_index]
-    reward = log(1+self.position.balance+self.position.total_pnl(price))
+    margin = self.position.balance+self.position.total_pnl(price)
+    
+    try:
+      reward = log(1+margin)
+    except ValueError:
+      print(f'problem margin: {margin}')
+      reward = 0
 
     is_last_obs = self.obs_index == len(self.observations) - 1
     terminated = is_last_obs or self.position.has_blown_up()
     if terminated and self.position.is_open():
       self.position.close(price, step=self.obs_index)
 
-    return observation, reward, terminated, {'max_steps': len(self.df),}
+    return observation, reward, terminated, {
+      'max_steps': len(self.df),
+      'position': self.position,
+    }
 
   def render(self):
     pass
