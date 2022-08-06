@@ -65,18 +65,14 @@ class Market(Env):
 
     self.obs_index += 1
     observation = self.observations[self.obs_index]
-    margin = self.position.balance+self.position.total_pnl(price)
-    
-    try:
-      reward = log(1+margin)
-    except ValueError:
-      print(f'problem margin: {margin}')
-      reward = 0
 
     is_last_obs = self.obs_index == len(self.observations) - 1
     terminated = is_last_obs or self.position.has_blown_up()
     if terminated and self.position.is_open():
       self.position.close(price, step=self.obs_index)
+
+    margin = 1+self.position.balance+self.position.total_pnl(price)
+    reward = log(max(1, margin))
 
     return observation, reward, terminated, {
       'max_steps': len(self.df),

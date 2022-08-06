@@ -1,4 +1,7 @@
+import os
 import pandas as pd
+
+symbols_dir = 'symbols'
 
 __symbols = pd.read_csv(f'symbols.csv')['Symbol']
 
@@ -16,7 +19,7 @@ def sample(size, max_inactivity=__max_inactivity, min_age=__min_age):
   while len(data) < size:
     s = __symbols.sample().iloc[0]
     try:
-      df = pd.read_csv(f'symbols\\{s}.csv', index_col='Date')
+      df = pd.read_csv(os.path.join(symbols_dir, f'{s}.csv'), index_col='Date')
       if is_active(df, max_inactivity) and is_mature(df, min_age):
         data.append((s, df))
     except FileNotFoundError:

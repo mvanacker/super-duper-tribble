@@ -4,11 +4,11 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 
-import numpy as np
 from datetime import datetime
 from tensorboardX import SummaryWriter
 from time import sleep
-
+import numpy as np
+import sys
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -49,9 +49,10 @@ def batches(env, net, length):
     steps.append((obs_t[0].numpy(), policy))
     
     obs_t, reward_step, terminated, info = env.step(policy)
-    reward += reward_step * len(steps) / info['max_steps']
+    reward += reward_step
 
     if terminated:
+      reward *= len(steps) / info['max_steps']
       batch.append((reward, steps))
       print(f'Finished episode {len(batch):0>3}, len={len(steps):0>4}, reward={reward:.2f} (pnl={info["position"].pnl:.2f})')
 
@@ -118,6 +119,8 @@ def main(net):
       writer.add_scalar("bound", bound, b)
       writer.add_scalar("mean", mean, b)
       writer.flush()
+      
+      save(model)
 
 def save(model):
   t = datetime.now()
@@ -127,6 +130,9 @@ def save(model):
 if __name__ == "__main__":
   try:
     model = Model(NUM_INPUTS, NUM_HIDDEN, NUM_OUTPUTS)
+    if len(sys.argv) > 1:
+      model.load_state_dict(torch.load(sys.argv[1]))
+      model.eval()
     main(model)
   # except Exception as e:
   #   print(e)
