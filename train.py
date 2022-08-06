@@ -4,7 +4,6 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 
-from datetime import datetime
 from tensorboardX import SummaryWriter
 from time import sleep
 import numpy as np
@@ -15,6 +14,7 @@ import torch.optim as optim
 
 from actions import actions
 from env import Market
+from model import Model
 
 LEARNING_RATE = 0.001
 LENGTH_BATCH  = 100
@@ -25,18 +25,6 @@ NUM_OUTPUTS   = len(actions)
 BOUND_MIN     = 400.0
 BEST_MAX      = 500
 PERCENTILE    = 80
-
-class Model(nn.Module):
-  def __init__(self, num_inputs, num_hidden, num_outputs):
-    super().__init__()
-    self.net = nn.Sequential(
-      nn.Linear(num_inputs, num_hidden),
-      nn.ReLU(),
-      nn.Linear(num_hidden, num_outputs)
-    )
-
-  def forward(self, x):
-    return self.net(x)
 
 def batches(env, net, length):
   batch = []
@@ -63,7 +51,7 @@ def batches(env, net, length):
       steps = []
       obs_t = env.reset()
 
-def main(net):
+def train(net):
   # torch.device("cpu")
   env = Market(LENGTH_BATCH, NUM_INPUTS, NUM_OUTPUTS)
   # env = gym.wrappers.TimeLimit(env, max_episode_steps=100)
@@ -120,22 +108,10 @@ def main(net):
       writer.add_scalar("mean", mean, b)
       writer.flush()
       
-      save(model)
-
-def save(model):
-  t = datetime.now()
-  path = f'wnb-{t.year}-{t.month:0>2}-{t.day:0>2}-{t.hour:0>2}-{t.minute:0>2}'
-  torch.save(model.state_dict(), path)
+      model.save('wnb')
 
 if __name__ == "__main__":
-  try:
-    model = Model(NUM_INPUTS, NUM_HIDDEN, NUM_OUTPUTS)
-    if len(sys.argv) > 1:
-      model.load_state_dict(torch.load(sys.argv[1]))
-      model.eval()
-    main(model)
-  # except Exception as e:
-  #   print(e)
-  except KeyboardInterrupt:
-    save(model)
-    exit(0)
+  model = Model(NUM_INPUTS, NUM_HIDDEN, NUM_OUTPUTS)
+  if len(sys.argv) > 1:
+    model.load(sys.argv[1])
+  train(model)
